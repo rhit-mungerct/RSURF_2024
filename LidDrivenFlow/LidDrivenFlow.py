@@ -21,7 +21,7 @@ from dolfinx.fem.petsc import NonlinearProblem
 from dolfinx.nls.petsc import NewtonSolver
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import CellType, create_rectangle, locate_entities_boundary
-from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad
+from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad, Identity
 
 # We create a {py:class}`Mesh <dolfinx.mesh.Mesh>`, define functions for
 # locating geometrically subsets of the boundary, and define a function
@@ -29,6 +29,7 @@ from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad
 
 nx = input("Enter Number of Points in X and Y direction: ")
 Reynold = input("Enter the Desired Reynolds Number: ")
+save = input("Do you want to save the results, 1 for yes and 0 for no: ")
 
 # Create mesh
 msh = create_rectangle(
@@ -98,15 +99,18 @@ u, p = ufl.split(uh)
 rho = PETSc.ScalarType(1.0)
 Re = PETSc.ScalarType(Reynold)
 mu = PETSc.ScalarType(1/Re)
-
-def symGrad(x):
-    return sym(nabla_grad(x))
+sigma = 2*mu*sym(grad(u)) - p*Identity(len(u))
 
 # Define the residual
 R = mu*inner(grad(u),grad(v))*ufl.dx
 R = R + rho*inner(grad(u)*u,v)*ufl.dx
 R = R - inner(p,div(v))*ufl.dx
 R = R - inner(q,div(u))*ufl.dx
+SUPG = 0.001*inner(dot(u,grad(v)), dot(u,grad(u)) - div(sigma))*dx
+# SUPG = inner(dot(u,grad(v)),dot(u,grad(u)) - div(sym(grad(u))) + grad(q))*dx
+# PSPG = inner(grad(q),dot(u,grad(u)) - div(sym(grad(u))) + grad(q))*dx
+LISC = inner(div(v),div(u))*dx
+R = R
 
 J = ufl.derivative(R, uh)
 
