@@ -75,7 +75,9 @@ if mesh_comm.rank == model_rank:
     gmsh.model.mesh.generate(gdim)
     gmsh.model.mesh.setOrder(2)
     gmsh.model.mesh.optimize("Netgen")
-    
+
+gmsh.write("LidDrivenFlowMesh.msh")
+
 mesh, _, ft = gmshio.model_to_mesh(gmsh.model, mesh_comm, model_rank, gdim=gdim)
 ft.name = "Facet markers"
 
@@ -128,10 +130,10 @@ R = mu*inner(grad(u),grad(v))*dx
 R = R + rho*inner(grad(u)*u,v)*dx
 R = R - inner(p,div(v))*dx
 R = R - inner(q,div(u))*dx
-SUPG = tauSUPG*inner(dot(u,grad(v)),dot(u,grad(u)) - div(sym(nabla_grad(u))) + grad(q))*dx
+""" SUPG = tauSUPG*inner(dot(u,grad(v)),dot(u,grad(u)) - div(sym(nabla_grad(u))) + grad(q))*dx
 PSPG = tauPSPG*inner(grad(q),dot(u,grad(u)) - div(sym(nabla_grad(u))) + grad(q))*dx
 LISC = inner(div(grad(v)),div(grad(u)))*dx
-R = R + SUPG + PSPG + LISC
+R = R + SUPG + PSPG + LISC """
 
 J = ufl.derivative(R, uh)
 

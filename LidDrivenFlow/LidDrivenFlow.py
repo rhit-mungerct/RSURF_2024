@@ -21,7 +21,7 @@ from dolfinx.fem.petsc import NonlinearProblem
 from dolfinx.nls.petsc import NewtonSolver
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import CellType, create_rectangle, locate_entities_boundary
-from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad, Identity
+from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad, Identity, CellDiameter, sqrt, form, min_value
 
 # We create a {py:class}`Mesh <dolfinx.mesh.Mesh>`, define functions for
 # locating geometrically subsets of the boundary, and define a function
@@ -29,7 +29,6 @@ from ufl import div, dx, grad, inner, dot, transpose, sym, nabla_grad, Identity
 
 nx = input("Enter Number of Points in X and Y direction: ")
 Reynold = input("Enter the Desired Reynolds Number: ")
-save = input("Do you want to save the results, 1 for yes and 0 for no: ")
 
 # Create mesh
 msh = create_rectangle(
@@ -79,7 +78,7 @@ lid_velocity.interpolate(lid_velocity_expression)
 facets = locate_entities_boundary(msh, 1, lid)
 dofs = locate_dofs_topological((W0, Q), 1, facets)
 bc1 = dirichletbc(lid_velocity, dofs, W0)
-
+min_value
 # Define pressure boundary condition
 W0 = W.sub(1)
 Q, _ = W0.collapse()
@@ -101,16 +100,28 @@ Re = PETSc.ScalarType(Reynold)
 mu = PETSc.ScalarType(1/Re)
 sigma = 2*mu*sym(grad(u)) - p*Identity(len(u))
 
+# Define tau for stabilization
+h = CellDiameter(msh)
+vnorm = sqrt(dot(u, u))
+a1 = 2*vnorm/h
+a2 = mu/(h**2)
+tau = min_value(h**2/(16*Re*mu), h/(2.*vnorm))
+# tau = (1/sqrt(a1**2 + a2**2))
+
 # Define the residual
 R = mu*inner(grad(u),grad(v))*ufl.dx
 R = R + rho*inner(grad(u)*u,v)*ufl.dx
 R = R - inner(p,div(v))*ufl.dx
 R = R - inner(q,div(u))*ufl.dx
-SUPG = 0.001*inner(dot(u,grad(v)), dot(u,grad(u)) - div(sigma))*dx
-# SUPG = inner(dot(u,grad(v)),dot(u,grad(u)) - div(sym(grad(u))) + grad(q))*dx
-# PSPG = inner(grad(q),dot(u,grad(u)) - div(sym(grad(u))) + grad(q))*dx
+
+# https://github.com/bragostin/Fenics/blob/main/HTC_SquareDuct_Steady_SUPG_Pub.py (line 97)
+# SUPG = inner(dot(u,grad(v)), dot(u,grad(u)) - div(sigma))*dx
+
+# Stein Stoter
+SUPG = inner(tau*dot(u,grad(v)), dot(u,grad(u)) - div(sigma))*dx
+PSPG = inner(tau*grad(q),dot(u,grad(u)) - div(sigma))*dx
 LISC = inner(div(v),div(u))*dx
-R = R
+R = R + SUPG + PSPG
 
 J = ufl.derivative(R, uh)
 
