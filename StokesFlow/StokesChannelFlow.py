@@ -44,6 +44,14 @@ dofs = fem.locate_dofs_topological((W0, Q), mesh.topology.dim-1, ft.find(4))
 bc_wall = fem.dirichletbc(noslip, dofs, W0)
 
 print("Starting to Interpolate uh_1")
+'''
+In order to interpolate between non-matching meshes in FEniCSx 0.0.8 to set the fully devolped inflow
+boundary condition, the interpolate command needs extra information because the 2 meshes are different sizes and dimensions. 
+In this code I am interpolating between a 2D fully devolped flow solution onto the 3D mesh of the entire channel,
+and the "create_nonmatching_meshes_interpolation_data" is needed.
+This community post has more information about using/debugging interpolation between meshes
+https://fenicsproject.discourse.group/t/interpolation-data-has-wrong-shape-size/15453
+'''
 uh_1.x.scatter_forward()
 inlet_1_velocity = Function(Q)
 inlet_1_velocity.interpolate(
@@ -114,40 +122,7 @@ from dolfinx.fem.petsc import LinearProblem
 problem = LinearProblem(a, L, bcs = bcs, petsc_options={'ksp_type': 'preonly', 'pc_type':'lu'})
 
 U = Function(W)
-U = problem.solve()
-# A = fem.petsc.assemble_matrix(a, bcs=bcs)
-# A.assemble()
-# b = fem.petsc.assemble_vector(L)
-
-# fem.petsc.apply_lifting(b, [a], bcs=[bcs])
-# b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-
-# # Set Dirichlet boundary condition values in the RHS
-# fem.petsc.set_bc(b, bcs)
-# print("Starting to Solve")
-# # Create and configure solver
-# ksp = PETSc.KSP().create(mesh.comm)
-# ksp.setOperators(A)
-# ksp.setType("preonly")
-
-# # Configure MUMPS to handle pressure nullspace
-# pc = ksp.getPC()
-# pc.setType("lu")
-# pc.setFactorSolverType("mumps")
-# pc.setFactorSetUpSolverType()
-# pc.getFactorMatrix().setMumpsIcntl(icntl=24, ival=1)
-# pc.getFactorMatrix().setMumpsIcntl(icntl=25, ival=0)
-# # Compute the solution
-# U = Function(W)
-# try:
-#     ksp.solve(b, U.x.petsc_vec)
-# except PETSc.Error as e:
-#     if e.ierr == 92:
-#         print("The required PETSc solver/preconditioner is not available. Exiting.")
-#         print(e)
-#         exit(0)
-#     else:
-#         raise e
+U = problem.solve() # Solve the problem
 
 # Split the mixed solution and collapse
 u, p = U.sub(0).collapse(), U.sub(1).collapse()
