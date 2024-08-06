@@ -29,7 +29,7 @@ mesh, _, ft = gmshio.model_to_mesh(gmsh.model, MPI.COMM_WORLD, 0, gdim=3)
 print("Finished Making Mesh")
 ft.name = "Facet markers"
 
-P2 = element("Lagrange", mesh.basix_cell(), 2, shape=(mesh.geometry.dim,))
+P2 = element("Lagrange", mesh.basix_cell(), 1, shape=(mesh.geometry.dim,))
 P1 = element("Lagrange", mesh.basix_cell(), 1)
 V, Q = functionspace(mesh, P2), functionspace(mesh, P1)
 
@@ -91,53 +91,75 @@ Q, _ = W0.collapse()
 (v, q) = ufl.TestFunctions(W)
 delta = 0
 f = Function(Q)
-a = form((inner(grad(u), grad(v)) + inner(p, div(v)) + inner(div(u), q)) * dx)
-L = form(inner(f,v) * dx)
+# a = form((inner(grad(u), grad(v)) + inner(p, div(v)) + inner(div(u), q)) * dx)
+# L = form(inner(f,v) * dx)
+
+# Stabilization parameters per Andre Massing
+h = ufl.CellDiameter(mesh)
+Beta = 0.2
+mu_T = Beta*h*h
+a = inner(grad(u), grad(v)) * dx
+a -= inner(p, div(v)) * dx
+a += inner(div(u), q) * dx
+a += mu_T*inner(grad(p), grad(q)) * dx # Stabilization term
+
+#L = (inner(f, v) - mu_T*inner(f, grad(q)))*dx
+L = inner(f,v) * dx
+L -= mu_T * inner(f, grad(q)) * dx # Stabilization  term
 
 # Assemble LHS matrix and RHS vector
 print("Start Assembling Stiffness Matrix and Forcing Vector")
-A = fem.petsc.assemble_matrix(a, bcs=bcs)
-A.assemble()
-b = fem.petsc.assemble_vector(L)
 
-fem.petsc.apply_lifting(b, [a], bcs=[bcs])
-b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+from dolfinx.fem.petsc import LinearProblem
+problem = LinearProblem(a, L, bcs = bcs, petsc_options={'ksp_type': 'preonly', 'pc_type':'lu'})
 
-# Set Dirichlet boundary condition values in the RHS
-fem.petsc.set_bc(b, bcs)
-
-# Create and configure solver
-ksp = PETSc.KSP().create(mesh.comm)
-ksp.setOperators(A)
-ksp.setType("preonly")
-
-# Configure MUMPS to handle pressure nullspace
-pc = ksp.getPC()
-pc.setType("lu")
-pc.setFactorSolverType("mumps")
-pc.setFactorSetUpSolverType()
-pc.getFactorMatrix().setMumpsIcntl(icntl=24, ival=1)
-pc.getFactorMatrix().setMumpsIcntl(icntl=25, ival=0)
-# Compute the solution
 U = Function(W)
-try:
-    ksp.solve(b, U.x.petsc_vec)
-except PETSc.Error as e:
-    if e.ierr == 92:
-        print("The required PETSc solver/preconditioner is not available. Exiting.")
-        print(e)
-        exit(0)
-    else:
-        raise e
+U = problem.solve()
+# A = fem.petsc.assemble_matrix(a, bcs=bcs)
+# A.assemble()
+# b = fem.petsc.assemble_vector(L)
+
+# fem.petsc.apply_lifting(b, [a], bcs=[bcs])
+# b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+
+# # Set Dirichlet boundary condition values in the RHS
+# fem.petsc.set_bc(b, bcs)
+# print("Starting to Solve")
+# # Create and configure solver
+# ksp = PETSc.KSP().create(mesh.comm)
+# ksp.setOperators(A)
+# ksp.setType("preonly")
+
+# # Configure MUMPS to handle pressure nullspace
+# pc = ksp.getPC()
+# pc.setType("lu")
+# pc.setFactorSolverType("mumps")
+# pc.setFactorSetUpSolverType()
+# pc.getFactorMatrix().setMumpsIcntl(icntl=24, ival=1)
+# pc.getFactorMatrix().setMumpsIcntl(icntl=25, ival=0)
+# # Compute the solution
+# U = Function(W)
+# try:
+#     ksp.solve(b, U.x.petsc_vec)
+# except PETSc.Error as e:
+#     if e.ierr == 92:
+#         print("The required PETSc solver/preconditioner is not available. Exiting.")
+#         print(e)
+#         exit(0)
+#     else:
+#         raise e
 
 # Split the mixed solution and collapse
 u, p = U.sub(0).collapse(), U.sub(1).collapse()
 
 # Compute norms
 norm_u, norm_p = la.norm(u.x), la.norm(p.x)
+norm_inf_u, inf_norm_p = la.norm(u.x, type=la.Norm.linf), la.norm(p.x, type=la.Norm.linf)
 if MPI.COMM_WORLD.rank == 0:
-    print(f"(D) Norm of velocity coefficient vector (monolithic, direct): {norm_u}")
-    print(f"(D) Norm of pressure coefficient vector (monolithic, direct): {norm_p}")
+    print(f"L2 Norm of velocity coefficient vector: {norm_u}")
+    print(f"Infinite Norm of velocity coefficient vector: {norm_inf_u}")
+    print(f"\nL2 Norm of pressure coefficient vector: {norm_p}")
+    print(f"Infinite Norm of pressure coefficient vector: {inf_norm_p}")
 
 print("Finished Solving, Saving Solution Field")
 # Save the pressure field
@@ -148,6 +170,7 @@ with XDMFFile(MPI.COMM_WORLD, "StokesChannelPressure.xdmf", "w") as pfile_xdmf:
     P3 = VectorElement("Lagrange", mesh.basix_cell(), 1)
     u1 = Function(functionspace(mesh, P3))
     u1.interpolate(p)
+    u1.name = 'Pressure'
     pfile_xdmf.write_mesh(mesh)
     pfile_xdmf.write_function(u1)
 
@@ -157,17 +180,6 @@ with XDMFFile(MPI.COMM_WORLD, "StokesChannelVelocity.xdmf", "w") as pfile_xdmf:
     P4 = VectorElement("Lagrange", mesh.basix_cell(), 1, shape=(mesh.geometry.dim,))
     u2 = Function(functionspace(mesh, P4))
     u2.interpolate(u)
+    u2.name = 'Velocity'
     pfile_xdmf.write_mesh(mesh)
     pfile_xdmf.write_function(u2)
-
-# def inner_velocity_expression(x):
-#     # find/create an interpolation function (or just a couple of lines) to replace np.ones with velocities from uh_1
-#     # Numpy array of velocities (last resort)
-#     # Get coordinates of each velocity field to interpolate onto common grid
-#     #coor_1 = V_1.tabulate_dof_coordinates()
-#     u_1 = uh_1.x.array.real.astype(np.float32)
-#     print(u_1)
-#     #coor_2 = V_2.tabulate_dof_coordinates()
-#     #u_2 = uh_2.x.array.real.astype(np.float32)
-#     return np.stack(())
-# # Inlet 1 Velocity Boundary Condition
