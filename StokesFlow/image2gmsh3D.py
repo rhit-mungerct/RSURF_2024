@@ -533,10 +533,7 @@ def image2gmsh3D(img_fname, mesh_lc_3D, x_outlet, x_extrude, save=False):
     return gmsh_model
 
 
-def main(img_fname):
-
-    mesh_lc_3D = 0.1
-
+def main(img_fname, mesh_lc_3D = 0.25):
     x_outlet = 3.0
     x_extrude = 2.0
     save = True
