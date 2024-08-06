@@ -83,9 +83,9 @@ def remove_duplicate_points(contour):
     eps = 0.001 * lc
     mesh_lc = 0.01 * lc    
     
-    print('lc = {:.2e}'.format(lc))
-    print('eps = {:.2e}'.format(eps))
-    print('mesh_lc = {:.2e}'.format(mesh_lc))    
+    # print('lc = {:.2e}'.format(lc))
+    # print('eps = {:.2e}'.format(eps))
+    # print('mesh_lc = {:.2e}'.format(mesh_lc))    
     
     duplicate_points = []
     for idx in range(len(contour)):
@@ -98,14 +98,14 @@ def remove_duplicate_points(contour):
             if (check_duplicate_point(point, point_compare, eps)):
                 duplicate_points.append(idx_1)
 
-    print('Removed {:d} duplicates'.format(len(duplicate_points)))
+    # print('Removed {:d} duplicates'.format(len(duplicate_points)))
     contour_out = np.delete(contour, duplicate_points, 0)
     
     return [contour_out, mesh_lc]
 
 
 def optimize_contour(contour):
-    print("Optimizing contour.")
+    # print("Optimizing contour.")
     dir_flag = 0
     dir_bank = []
 
@@ -146,9 +146,9 @@ def optimize_contour(contour):
     eps = 0.001 * lc
     mesh_lc = 0.01 * lc    
     
-    print('lc = {:.2e}'.format(lc))
-    print('eps = {:.2e}'.format(eps))
-    print('mesh_lc = {:.2e}'.format(mesh_lc))    
+    # print('lc = {:.2e}'.format(lc))
+    # print('eps = {:.2e}'.format(eps))
+    # print('mesh_lc = {:.2e}'.format(mesh_lc))    
 
     #contour = reverse_opt_pass(contour)
     return [contour, mesh_lc]
@@ -169,8 +169,8 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
 
     line_init = l_idx
 
-    print('p_init = {:d}'.format(p_idx))
-    print('Number of points in inner contour: {}'.format(len(inner_contour)))
+    # print('p_init = {:d}'.format(p_idx))
+    print('\nNumber of points in inner contour: {}'.format(len(inner_contour)))
     print('Number of points in outer contour: {}'.format(len(outer_contour)))
 
     # f.write('SetFactory("OpenCASCADE");\n')
@@ -236,18 +236,18 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     surf_idx += 1
 
     # Create walls
-    print(f'l_idx = {l_idx}')
+    # print(f'l_idx = {l_idx}')
     for i in range(4):
         g.addLine(p_start+i, p_start+i+4, l_idx)
         l_idx += 1
 
     for i in range(1,4):
-        print(f'iter {i}')
+        # print(f'iter {i}')
         line_loop = [i, i+9, i+4, i+8]
-        print(line_loop)
+        # print(line_loop)
         g.addCurveLoop([i, i+8, i+4, i+9], loop_idx)
-        print(f'loop_idx = {loop_idx}')
-        print(f'surf_idx = {surf_idx}')
+        # print(f'loop_idx = {loop_idx}')
+        # print(f'surf_idx = {surf_idx}')
         g.addPlaneSurface([loop_idx], surf_idx)
         wall_surfaces.append(surf_idx)
         loop_idx += 2
@@ -356,7 +356,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     # Inner contour surfaces
     # loop_idx = l_idx + 2
     for i in range(len(inlet_inner_contour_lines)-1):
-        print(f'iter = {i}')
+        # print(f'iter = {i}')
         g.addCurveLoop([inlet_inner_contour_lines[i],
             inner_contour_connecting_lines[i], extrude_inner_contour_lines[i], inner_contour_connecting_lines[i+1]], loop_idx)
         g.addPlaneSurface([loop_idx], surf_idx)
@@ -385,7 +385,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     g.addCurveLoop([inlet_outer_contour_lines[-1],
         outer_contour_connecting_lines[0], extrude_outer_contour_lines[-1], outer_contour_connecting_lines[-1]], loop_idx)
     i = g.addPlaneSurface([loop_idx], surf_idx)
-    print(f'i = {i}')
+    # print(f'i = {i}')
     wall_surfaces.append(surf_idx)
     loop_idx += 2
     surf_idx += 1
@@ -398,7 +398,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     g.addCurveLoop(extrude_outer_contour_lines, loop_idx)
     loop_idx += 1 
     i = g.addPlaneSurface([loop_idx-2, loop_idx-1], surf_idx)
-    print(f'i = {i}')
+    # print(f'i = {i}')
     wall_surfaces.append(surf_idx)
     surf_idx +=1
 
@@ -407,7 +407,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     # g.addCurveLoop(inlet_outer_contour_lines, loop_idx)
     # loop_idx += 1 
     i = g.addPlaneSurface([loop_idx], surf_idx)
-    print(f'i = {i}')
+    # print(f'i = {i}')
     inlet_inner_surfaces.append(surf_idx)
     loop_idx += 1 
     surf_idx +=1
@@ -416,7 +416,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     
     g.addCurveLoop(inlet_outer_contour_lines, loop_idx+1)
     i = g.addPlaneSurface([loop_idx, loop_idx+1], surf_idx)
-    print(f'i = {i}')
+    # print(f'i = {i}')
     inlet_outer_surfaces.append(surf_idx)
     loop_idx += 2
     surf_idx +=1

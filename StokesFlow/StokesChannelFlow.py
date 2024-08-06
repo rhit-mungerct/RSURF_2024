@@ -1,3 +1,18 @@
+'''
+This python file is a stabilized Stokes flow solver that can be used to predict the output shape of 
+low Reynolds number exetrusion flow. The files that are needed are the "image2gmsh3D.py" and
+"image2inlet.py", which are in the "StokesFlow" folder in github. This code is made using FEniCSx
+version 0.0.8, and dolfinX version 0.9.0.0 and solves stabilized Stokes flow.
+The Grad-Div stabilization method is used to allow Taylor Hood (P2-P1) and lower order (P1-P1) elements 
+can be used becuase of the stabilization parameters. To improve efficiency of the 
+solver, the inlet boundary conditions are fully devolped flow which are generated in the image2inlet.py
+file, and gmsh is used to mesh the domain.
+
+Caleb Munger
+Dr. Daniel Stoecklein
+August 2024
+'''
+
 import sys
 import os
 from dolfinx import mesh
@@ -42,13 +57,20 @@ ft.name = "Facet markers"
 
 
 # ------ Create the different finite element spaces ------
-P2 = element("Lagrange", mesh.basix_cell(), 1, shape=(mesh.geometry.dim,))
-P1 = element("Lagrange", mesh.basix_cell(), 1)
+P2 = element("Lagrange", mesh.basix_cell(), 1, shape=(mesh.geometry.dim,)) # Velocity elements for P1-P1
+# P2 = element("Lagrange", mesh.basix_cell(), 2, shape=(mesh.geometry.dim,)) # Velocity elmeents for Taylor-Hood (P2-P1)
+P1 = element("Lagrange", mesh.basix_cell(), 1) # Pressure elements
 V, Q = functionspace(mesh, P2), functionspace(mesh, P1)
 
 
 
 # ------- Create boundary conditions -------
+''' There are 5 markers that are created by gmsh, they are used set bounadry conditions
+#1 inlet_1 - Inner flow at the inlet
+#2 inlet_2 - Outer flow at the inlet
+#3 outlet - Outlet flow location
+#4 wall - all of the walls inside and on the edge of the channel
+#5 fluid - fluid marker for inside the domain, NOT used in boundary conditions'''
 TH = mixed_element([P2, P1]) # Create mixed element
 W = functionspace(mesh, TH)
 # No Slip Wall Boundary Condition
@@ -59,15 +81,14 @@ dofs = fem.locate_dofs_topological((W0, Q), mesh.topology.dim-1, ft.find(4))
 bc_wall = fem.dirichletbc(noslip, dofs, W0)
 
 # inlet 1 boundary condition (inlet 1 is the inner channel)
-print("Starting to Interpolate uh_1")
-'''
-In order to interpolate between non-matching meshes in FEniCSx 0.0.8 to set the fully devolped inflow
-boundary condition, the interpolate command needs extra information because the 2 meshes are different sizes and dimensions. 
+print("\nStarting to Interpolate uh_1")
+''' To interpolate between non-matching meshes in FEniCSx 0.0.8 to set the fully devolped inflow
+boundary condition, the interpolate command needs extra info because the 2 meshes are different sizes and dimensions. 
 In this code I am interpolating between a 2D fully devolped flow solution onto the 3D mesh of the entire channel,
 and the "create_nonmatching_meshes_interpolation_data" is needed.
 This community post has more information about using/debugging interpolation between meshes
-https://fenicsproject.discourse.group/t/interpolation-data-has-wrong-shape-size/15453
-'''
+https://fenicsproject.discourse.group/t/interpolation-data-has-wrong-shape-size/15453 '''
+
 uh_1.x.scatter_forward()
 inlet_1_velocity = Function(Q)
 inlet_1_velocity.interpolate(
@@ -84,7 +105,7 @@ dofs = fem.locate_dofs_topological((W0, Q), mesh.topology.dim-1, ft.find(1))
 bc_inlet_1 = dirichletbc(inlet_1_velocity, dofs, W0)
 
 # interpolate inlet 2 boundary condition
-print("Starting to Interpolate uh_2")
+print("\nStarting to Interpolate uh_2")
 uh_2.x.scatter_forward()
 inlet_2_velocity = Function(Q)
 inlet_2_velocity.interpolate(
@@ -107,9 +128,9 @@ Q, _ = W0.collapse()
 # Outlet Pressure Condition
 dofs = fem.locate_dofs_topological((W0), mesh.topology.dim-1, ft.find(3))
 bc_outlet = dirichletbc(PETSc.ScalarType(0), dofs, W0)
-print("Start to Combine Boundary Conditions")
+print("\nStart to Combine Boundary Conditions")
 bcs = [bc_wall, bc_inlet_1, bc_inlet_2, bc_outlet]
-
+print("Finihsed Combining Boundary Conditions")
 
 
 # ------ Create/Define weak form
@@ -132,13 +153,13 @@ L = inner(f,v) * dx
 L -= mu_T * inner(f, grad(q)) * dx # Stabilization  term
 '''
 For more infromation about stabilizing stokes flow, the papers "Grad-Div Stabilization for Stokes Equations" by Maxim A. Olshanskii
-and "On the parameter of choice in grad-div stabilization for the stokes equations by Eleanir W. Jenkins are recommended
+and "On the parameter of choice in grad-div stabilization for the stokes equations" by Eleanir W. Jenkins are recommended
 '''
 
 
 
 # ------ Assemble LHS matrix and RHS vector and solve-------
-print("Start Assembling Stiffness Matrix and Forcing Vector")
+print("\nStart Assembling Stiffness Matrix and Forcing Vector")
 from dolfinx.fem.petsc import LinearProblem
 problem = LinearProblem(a, L, bcs = bcs, petsc_options={'ksp_type': 'preonly', 'pc_type':'lu'})
 U = Function(W)
@@ -153,12 +174,12 @@ u, p = U.sub(0).collapse(), U.sub(1).collapse()
 norm_u, norm_p = la.norm(u.x), la.norm(p.x)
 norm_inf_u, inf_norm_p = la.norm(u.x, type=la.Norm.linf), la.norm(p.x, type=la.Norm.linf)
 if MPI.COMM_WORLD.rank == 0:
-    print(f"L2 Norm of velocity coefficient vector: {norm_u}")
+    print(f"\nL2 Norm of velocity coefficient vector: {norm_u}")
     print(f"Infinite Norm of velocity coefficient vector: {norm_inf_u}")
-    print(f"\nL2 Norm of pressure coefficient vector: {norm_p}")
+    print(f"L2 Norm of pressure coefficient vector: {norm_p}")
     print(f"Infinite Norm of pressure coefficient vector: {inf_norm_p}")
 
-print("Finished Solving, Saving Solution Field")
+print("\nFinished Solving, Saving Solution Field")
 
 
 
