@@ -188,8 +188,8 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     wall_surfaces = []
 
     x_inlet = 0.0
-    # x_outlet = 2.0
-    # x_extrude = 1.0
+    x_outlet = 4.0
+    x_extrude = 0.5
     lc = mesh_lc
     lc_1 = lc/2
     lc_outlet = 2*lc
@@ -244,7 +244,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     for i in range(1,4):
         # print(f'iter {i}')
         line_loop = [i, i+9, i+4, i+8]
-        # print(line_loop)
+        print(line_loop)
         g.addCurveLoop([i, i+8, i+4, i+9], loop_idx)
         # print(f'loop_idx = {loop_idx}')
         # print(f'surf_idx = {surf_idx}')
@@ -391,7 +391,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     surf_idx += 1
 
     # Extruded wall face
-    # print('creating extruded wall face')
+    print('creating extruded wall face')
     # line_loop_list = extrude_inner_contour_lines
     g.addCurveLoop(extrude_inner_contour_lines, loop_idx)
     loop_idx += 1 
@@ -486,7 +486,7 @@ def gmsh_3D_extrusion_to_gmsh(mesh_lc, inner_contour, outer_contour, x_outlet, x
     return gmsh.model
 
 def load_image(img_fname):
-    print('Loading image {}'.format(img_fname))
+    # print('Loading image {}'.format(img_fname))
     img = sk.io.imread(img_fname)
 
     # print(img.shape)

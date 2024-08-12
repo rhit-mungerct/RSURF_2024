@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 '''
 This python file is a stabilized Stokes flow solver that can be used to predict the output shape of 
 low Reynolds number exetrusion flow. The files that are needed are the "image2gmsh3D.py" and
@@ -9,7 +11,6 @@ solver, the inlet boundary conditions are fully devolped flow which are generate
 file, and gmsh is used to mesh the domain.
 
 Caleb Munger
-Dr. Daniel Stoecklein
 August 2024
 '''
 
@@ -27,9 +28,7 @@ from ufl import div, dx, grad, inner
 from image2gmsh3D import *
 from image2gmsh3D import main as meshgen
 from image2inlet import solve_inlet_profiles
-
-
-
+import time
 
 # ------ Inputs ------
 if len(sys.argv) == 3:
@@ -46,22 +45,26 @@ print("Accepted Inputs, Begining Solving Inlet Profiles")
 
 
 # ------ Create mesh and inlet velocity profiles ------
+start = time.perf_counter()
 uh_1, msh_1, uh_2, msh_2 = solve_inlet_profiles(img_fname, flowrate_ratio)
-print("Inlet Profile Solved, Starting to Make Mesh")
+end = time.perf_counter()
+elapsed = end - start
+print(f"Inlet Profile Solved, Starting to Make Mesh. {elapsed:.6f} Seconds to Solve Inlet Profiles")
+start = time.perf_counter()
 mesh = meshgen(img_fname, channel_mesh_size)
 mesh, _, ft = gmshio.model_to_mesh(gmsh.model, MPI.COMM_WORLD, 0, gdim=3)
 # mesh, _, ft = gmshio.read_from_msh("ChannelMesh.msh", MPI.COMM_WORLD, 0, gdim=3)
-print("Finished Making Mesh")
 ft.name = "Facet markers"
-
-
+end = time.perf_counter()
+print(f"Finished Making Mesh. {elapsed:.6f} Seconds to Make Mesh and Turn it Into FEniCSx Object")
+start = time.perf_counter()
 
 # ------ Create the different finite element spaces ------
 P2 = element("Lagrange", mesh.basix_cell(), 1, shape=(mesh.geometry.dim,)) # Velocity elements for P1-P1
 # P2 = element("Lagrange", mesh.basix_cell(), 2, shape=(mesh.geometry.dim,)) # Velocity elmeents for Taylor-Hood (P2-P1)
 P1 = element("Lagrange", mesh.basix_cell(), 1) # Pressure elements
 V, Q = functionspace(mesh, P2), functionspace(mesh, P1)
-
+print(f"There are this Many Degrees of Freedom in the Pressure Nodes: {Q.dofmap.index_map.size_local}")
 
 
 # ------- Create boundary conditions -------
@@ -130,10 +133,12 @@ dofs = fem.locate_dofs_topological((W0), mesh.topology.dim-1, ft.find(3))
 bc_outlet = dirichletbc(PETSc.ScalarType(0), dofs, W0)
 print("\nStart to Combine Boundary Conditions")
 bcs = [bc_wall, bc_inlet_1, bc_inlet_2, bc_outlet]
-print("Finihsed Combining Boundary Conditions")
+end = time.perf_counter()
+elapsed = end - start
+print(f"Finihsed Combining Boundary Conditions. {elapsed:.6f} Seconds to Apply all Boundary Conditions")
 
 
-# ------ Create/Define weak form
+# ------ Create/Define weak form ------
 W0 = W.sub(0)
 Q, _ = W0.collapse()
 (u, p) = ufl.TrialFunctions(W)
@@ -157,11 +162,11 @@ and "On the parameter of choice in grad-div stabilization for the stokes equatio
 '''
 
 
-
+start = time.perf_counter()
 # ------ Assemble LHS matrix and RHS vector and solve-------
 print("\nStart Assembling Stiffness Matrix and Forcing Vector")
 from dolfinx.fem.petsc import LinearProblem
-problem = LinearProblem(a, L, bcs = bcs, petsc_options={'ksp_type': 'preonly', 'pc_type':'lu'})
+problem = LinearProblem(a, L, bcs = bcs, petsc_options={'ksp_type': 'bcgs', 'ksp_rtol':1e-10, 'ksp_atol':1e-10})
 U = Function(W)
 U = problem.solve() # Solve the problem
 
@@ -169,7 +174,9 @@ U = problem.solve() # Solve the problem
 
 # ------ Split the mixed solution and collapse ------
 u, p = U.sub(0).collapse(), U.sub(1).collapse()
-
+end = time.perf_counter()
+elapsed = end - start
+print(f'{elapsed:.6f} Seconds to Solve The System')
 # Compute norms
 norm_u, norm_p = la.norm(u.x), la.norm(p.x)
 norm_inf_u, inf_norm_p = la.norm(u.x, type=la.Norm.linf), la.norm(p.x, type=la.Norm.linf)
