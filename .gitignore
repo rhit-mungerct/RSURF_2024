@@ -1,2 +1,5 @@
 *.csv
+*.xdmf
+*.h5
+*.msh
 *.ipynb_checkpoints
