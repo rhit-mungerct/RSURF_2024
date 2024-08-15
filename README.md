@@ -68,3 +68,16 @@ of a fluid at an outlet (assuming no mixing) for low Reynolds number exetrusion 
   The other set of elements that can be used are stabilized P1-P1 (linear velocity and pressure). Grad-Div stabilization is used to allow the use of P1-P1 elements. Grad-Div stabilization worked by ensuring
   the FE stiffness matrix is positive definite, ensuring a solution exists.
 </details>
+
+<details>
+<summary>Stream Tracing</summary>
+<br>
+  To generate a stream-trace of the output, there are 2 files in the Stokes FLow Folder. The first file that must be used is the "reverse_streamtrace_xdmf.py" file. This is not a standard python file, this is a pvpython file.
+  pvpython is a Paraview version of python that can be downloaded onlined, if you have installed paraview, most likely pythonpy is also in the paraview bin. To run the "reverse_streamtrace_xdmf.py" the inputs are the .xdmf velocity file made
+  from running "StokesChannelFlow.py", when calling the .xxmdf, the absolute location of the file path must be given, even if the "reverse_streamtrace_xdmf.py" and .xdmf file are in the same folder. The next 2 inputs are the number of seeds for 
+  the reverese stream trace, it is recommended to start with 200 by 200. The last input is the name of a text file the reverese stream trace seeds will be written to, ex: "reversest.txt"
+
+
+  To turn the reverse stream trace into .png image of the inlet and outlet as shown above, the "process_streamtrace.py" file is required. This is a regular python file with inputs of the png image of the inlet shape, the reverse stream trace text 
+  file ex: "reversest.txt", and the number of seeds. The number of seeds must match the number of seeds used in the "reverse_streamtrace_xdmf.py" file.
+</details>
