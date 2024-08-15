@@ -56,6 +56,7 @@ mesh, _, ft = gmshio.model_to_mesh(gmsh.model, MPI.COMM_WORLD, 0, gdim=3)
 # mesh, _, ft = gmshio.read_from_msh("ChannelMesh.msh", MPI.COMM_WORLD, 0, gdim=3)
 ft.name = "Facet markers"
 end = time.perf_counter()
+elapsed = end - start
 print(f"Finished Making Mesh. {elapsed:.6f} Seconds to Make Mesh and Turn it Into FEniCSx Object")
 start = time.perf_counter()
 
