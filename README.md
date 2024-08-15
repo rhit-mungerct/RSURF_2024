@@ -65,5 +65,6 @@ of a fluid at an outlet (assuming no mixing) for low Reynolds number exetrusion 
 <summary>Stabilization Methods</summary>
 <br>
   The solver can be with 2 differnet element types to produce a stable output. P2-P1 (quadratic velocity and linear pressure) elements, also called "Taylor-Hood" elements are a stable mixed formulation element pair.
-  The other set of elements that can be used are stabilized P1-P1 (linear velocity and pressure)
+  The other set of elements that can be used are stabilized P1-P1 (linear velocity and pressure). Grad-Div stabilization is used to allow the use of P1-P1 elements. Grad-Div stabilization worked by ensuring
+  the FE stiffness matrix is positive definite, ensuring a solution exists.
 </details>
